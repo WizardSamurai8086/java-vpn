@@ -21,7 +21,8 @@ public class JdkTcpConnection implements TcpConnection {
 
     private static final ExecutorService IO_EXECUTOR = Executors.newCachedThreadPool();
     //创建本地socket
-    private final Object sendLock = new Object(); // 类字段
+    private final Object receiveLock = new Object();    //加锁
+    private final Object sendLock = new Object();       //类字段
     private final Socket socket;
     public JdkTcpConnection(Socket socket) {
         this.socket = socket;
@@ -60,8 +61,10 @@ public class JdkTcpConnection implements TcpConnection {
 
                 data.get(tmp, 0, len);
 
-                out.write(tmp);
-                out.flush();
+                synchronized (sendLock) {       //避免写入顺序被破坏（interleaving）
+                    out.write(tmp);
+                    out.flush();
+                }
                 return len;
 
 
@@ -85,13 +88,17 @@ public class JdkTcpConnection implements TcpConnection {
                 int max = buffer.remaining();
                 byte[] tmp = new byte[max];
 
-                int  len = in.read(tmp);
-                if (len == -1) {
-                    return -1; //对端关闭
+                synchronized (receiveLock) {        //防止字节所有权被破坏（stealing）
+                    int  len = in.read(tmp);
+                    if (len == -1) {
+                        return -1; //对端关闭
+                    }
+
+                    buffer.put(tmp, 0, len);
+                    return len;
                 }
 
-                buffer.put(tmp, 0, len);
-                return len;
+
 
             } catch (IOException e) {
 
