@@ -103,7 +103,7 @@ public class JdkTcpConnection implements TcpConnection {
             } catch (IOException e) {
 
                 throw new CompletionException(
-                        new TransportException("tcp receive error", e)
+                        new TransportException("tcp receive exception", e)
                 );
 
             }
