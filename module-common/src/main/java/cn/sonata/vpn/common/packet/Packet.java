@@ -3,7 +3,7 @@ package cn.sonata.vpn.common.packet;
 
 import java.nio.ByteBuffer;
 
-public class Packet {
+public class    Packet {
     private final PacketHeader header;
     private final ByteBuffer body;
 
@@ -50,9 +50,44 @@ public class Packet {
 
     /**
      * body getter
-     * @return body
+     * @return body (may be null)
      */
     public ByteBuffer getBody() {
+        //修复了因body为空导致的NPE
+        if (body == null) {
+            return null;
+        }
         return body.asReadOnlyBuffer();
     }
+
+    /**
+     * 工厂方法构建特殊包
+     * TYPE:HELLO
+     * @return Packet
+     */
+    public static Packet hello() {
+        PacketHeader header = new PacketHeader(0x56504E44, (short) 0x00, PacketType.HELLO, 0);
+        return new Packet(header, null);
+    }
+    /**
+     * 工厂方法构建特殊包
+     * TYPE:HELLO_ACK
+     * @return Packet
+     */
+    public static Packet helloACK() {
+
+        PacketHeader header = new PacketHeader(0x56504E44, (short) 0x00, PacketType.HELLO_ACK, 0);
+        return new Packet(header,null);
+    }
+    /**
+     * 工厂方法构建特殊包
+     * TYPE:CLOSE
+     * @return Packet
+     */
+    public static Packet close() {
+        PacketHeader header = new PacketHeader(0x56504E44, (short) 0x00, PacketType.CLOSE, 0);
+        return new Packet(header,null);
+    }
+
+
 }

@@ -4,6 +4,7 @@ import cn. sonata.vpn.common. packet.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 
 public class PacketTestDemo {
@@ -25,7 +26,7 @@ public class PacketTestDemo {
         System.out.println(s + " has been packed");
 
         // ===== 编码阶段 =====
-        ByteBuffer byteBuffer = PacketCodec.PacketEncode(pkt);
+        ByteBuffer byteBuffer = PacketCodec.encode(pkt);
         System.out.println("Encode completed");
 
 
@@ -55,15 +56,24 @@ public class PacketTestDemo {
         System.out.println("\nBefore decode - position: " + byteBuffer.position());
         System.out.println("Before decode - remaining: " + byteBuffer. remaining());
 
-        Packet packet = PacketCodec.PacketDecode(byteBuffer);
+        List<Packet> packets = PacketCodec.decode(byteBuffer);
         System.out.println("Decode completed");
 
-        if (packet == null) {
+        if (packets == null) {
             System.out.println("❌ ERROR: PacketDecode returned null!");
             System.out.println("After decode - remaining: " + byteBuffer.remaining());
             System.out.println("After decode - position: " + byteBuffer. position());
             return;
         }
+
+        if (packets.isEmpty()) {
+            System.out.println("❌ ERROR: PacketDecode returned empty list (possibly incomplete frame)");
+            System.out.println("After decode - remaining: " + byteBuffer.remaining());
+            System.out.println("After decode - position: " + byteBuffer.position());
+            return;
+        }
+
+        Packet packet = packets.get(0);
 
         System. out.println("✅ Packet decoded successfully!");
         System.out. println("Decoded packet object: " + packet);
@@ -80,7 +90,7 @@ public class PacketTestDemo {
         ByteBuffer bodyBuffer = packet.getBody();
         if (bodyBuffer != null) {
             System.out.println("\n--- Decoded Packet Body ---");
-            bodyBuffer.flip();
+            // Packet.getBody() 已经返回 readOnlyBuffer 且 position=0；这里无需 flip()
             byte[] data1 = new byte[bodyBuffer.remaining()];
             bodyBuffer.get(data1);
             String s1 = new String(data1, StandardCharsets.UTF_8);
