@@ -40,6 +40,23 @@ public final class ProtocolEffect {
         return new ProtocolEffect(Action.CLOSE_ERROR, null);
     }
 
+    /**
+     * 向 outputs 添加一条应用层数据
+     */
+    public void addOutput(Packet packet) {
+        if (packet != null) {
+            outputs.add(packet);
+        }
+    }
+
+    /**
+     * 向 outputs 批量添加应用层数据
+     */
+    public void addOutputs(List<Packet> packets) {
+        if (packets != null && !packets.isEmpty()) {
+            outputs.addAll(packets);
+        }
+    }
     public List<Packet> getOutputs() {
         return outputs;
     }

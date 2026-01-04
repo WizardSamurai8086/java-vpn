@@ -51,11 +51,12 @@ public class ProtocolFSM {
         // 客户端侧协议：主动发 HELLO
         // IMPORTANT: after sending HELLO, we must expect HELLO_ACK next.
         // So we advance to NEGOTIATING here.
-        state = ProtocolState.NEGOTIATING;
+        state = ProtocolState.NEGOTIATING;  //激活本地fsm
         return ProtocolEffect.send(List.of(Packet.hello()));
     }
 
     /**
+     *
      * 协议状态机
      * 实现响应式输出
      * @param packet 待处理包
@@ -83,7 +84,6 @@ public class ProtocolFSM {
             case READY:
                 if(packet.getHeader().getType() == PacketType.DATA)
                 {
-
                     return ProtocolEffect.none();
                 }
                 if(packet.getHeader().getType() == PacketType.CLOSE) {

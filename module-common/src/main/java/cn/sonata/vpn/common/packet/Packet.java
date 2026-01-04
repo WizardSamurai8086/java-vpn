@@ -89,5 +89,15 @@ public class    Packet {
         return new Packet(header,null);
     }
 
+    //创建一个toString方法
+    @Override
+    public String toString() {
+        return "Packet{" +
+                "header=" + header +
+                ", bodyRemaining=" + (body == null ? 0 : body.remaining()) +
+                '}';
+    }
+
+
 
 }

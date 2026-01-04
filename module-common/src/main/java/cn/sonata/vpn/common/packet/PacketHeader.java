@@ -35,4 +35,14 @@ public class PacketHeader {
     public int getLength() {
         return length;
     }
+
+    @Override
+    public String toString() {
+        return "PacketHeader{" +
+                "magic=" + magic +
+                ", version=" + version +
+                ", type=" + type +
+                ", length=" + length +
+                '}';
+    }
 }

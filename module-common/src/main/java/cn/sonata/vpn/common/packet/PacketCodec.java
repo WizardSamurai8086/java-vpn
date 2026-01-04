@@ -11,6 +11,7 @@ public class PacketCodec {
 
 
     /**
+     * 字节语义和类型语义
      * Packet encoder
      * @param packet 传入待编码packet
      * @return buffer 返回一个ByteBuffer

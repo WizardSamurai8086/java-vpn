@@ -5,6 +5,7 @@ import cn.sonata.vpn.common.protocol.*;
 import cn.sonata.vpn.common.transport.TransportException;
 import cn.sonata.vpn.common.transport.tcp.*;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 
 public class DefaultSession implements Session {
@@ -61,7 +62,7 @@ public class DefaultSession implements Session {
 
         if (state != SessionState.INIT)
             return;
-        state = SessionState.RUNNING;
+        state = SessionState.RUNNING;   //sessionState
 
         ProtocolEffect effect = fsm.onSessionStart();
         apply(effect);
@@ -76,11 +77,11 @@ public class DefaultSession implements Session {
         if (state != SessionState.INIT) {
             return;
         }
-        state = SessionState.RUNNING;
+        state = SessionState.RUNNING;   //sessionState.Running 不发包
     }
 
     /**
-     *
+     *向应用层传输数据，调度fsm, 控制io
      */
     @Override
     public void onReadable() {
@@ -88,6 +89,16 @@ public class DefaultSession implements Session {
             return;
 
         ByteBuffer buffer = ByteBuffer.allocate(4096);
+
+        /**
+         * onReadable is a scheduling trigger, not a synchronous step.
+         *
+         * For teaching demo:
+         * - driveOnce() triggers IO readiness
+         * - actual protocol progression may happen asynchronously
+         *
+         * This is a deliberate simplification under time constraints.
+         */
 
         try{
             connection.receiveAsync(buffer).thenAccept(n -> {
@@ -98,8 +109,21 @@ public class DefaultSession implements Session {
                 }
 
                 buffer.flip();
+                //做一个listener来get包
                 var packets = PacketCodec.decode(buffer);
 
+                /**应用层和协议层真正的接口
+                 * 在外部impl方法来调取packets
+                 * NOTE:
+                 * 应用调度先于协议
+                 * 真实应用场景应该避免
+                 */
+                if (listener != null) {
+                    listener.exposeReceived(packets);
+                }
+
+
+                //fsm层处理
                 for (Packet packet : packets)
                 {
                     ProtocolEffect effect = fsm.handlePacket(packet);
@@ -155,6 +179,7 @@ public class DefaultSession implements Session {
             //控制tcp连接
             switch (effect.getAction())
             {
+                //TODO:可以加个default暴露问题语义，暂时不做处理
                 case NONE -> {}
                 case SEND -> {
                     for(Packet packet : effect.getOutputs())
