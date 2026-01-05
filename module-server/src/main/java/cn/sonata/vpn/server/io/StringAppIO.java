@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * A teaching-level AppIO implementation.
- *
+ * NOTE:这里是弱O语义的，只存到内存，不进行转发
+ * TODO:有proxy模块后直接调用来实现转发效果
  * It treats packet payload as UTF-8 text,
  * prints it, and stores it in memory.
  */

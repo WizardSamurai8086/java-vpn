@@ -112,17 +112,6 @@ public class DefaultSession implements Session {
                 //做一个listener来get包
                 var packets = PacketCodec.decode(buffer);
 
-                /**应用层和协议层真正的接口
-                 * 在外部impl方法来调取packets
-                 * NOTE:
-                 * 应用调度先于协议
-                 * 真实应用场景应该避免
-                 */
-                if (listener != null) {
-                    listener.exposeReceived(packets);
-                }
-
-
                 //fsm层处理
                 for (Packet packet : packets)
                 {
@@ -131,6 +120,13 @@ public class DefaultSession implements Session {
                     if(state != SessionState.RUNNING)
                         return;
 
+                    /**应用层和协议层真正的接口
+                     * 在外部impl方法来调取packets
+                     *
+                     */
+                    if (listener != null) {
+                        listener.exposeReceived(List.of(packet));
+                    }
                 }
             });
 

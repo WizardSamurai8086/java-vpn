@@ -59,8 +59,10 @@ public class ProtocolFSM {
      *
      * 协议状态机
      * 实现响应式输出
+     * FSM 产出 ProtocolEffect，由 Session/Transport 层执行发送/关闭等副作用（side effects）
      * @param packet 待处理包
      * @return  ProtocolEffect to Session
+     *
      */
     public ProtocolEffect handlePacket(Packet packet) {
         switch (this.state) {

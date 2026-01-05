@@ -28,6 +28,12 @@ public final class ProtocolEffect {
         return new ProtocolEffect(Action.NONE, null);
     }
 
+    /**
+     *
+     * 发包方法可用于应用层dispatch/专用Session的构建
+     * @param outputs
+     * @return
+     */
     public static ProtocolEffect send(List<Packet> outputs) {
         return new ProtocolEffect(Action.SEND, outputs);
     }

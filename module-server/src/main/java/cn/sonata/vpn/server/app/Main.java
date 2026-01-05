@@ -38,6 +38,8 @@ public class Main {
                     serverSession.awaitReady(Duration.ofNanos(100));
                     break;
                 case PROGRESSED:
+                    //TODO:未来可以细化握手
+                    serverSession.markReady();
                     break;
                 case CLOSED:
                     System.out.println("ServerSession has been closed");
@@ -55,7 +57,7 @@ public class Main {
 
     private static DefaultSession createSession() {
         try {
-            InetSocketAddress address = new InetSocketAddress(9000);
+            InetSocketAddress address = new InetSocketAddress("127.0.0.1", 9000);
             TcpServer tcpServer = new JdkTcpServer();
             tcpServer.bind(address);
             System.out.println("[server] listening on " + address + ", waiting for client...");
