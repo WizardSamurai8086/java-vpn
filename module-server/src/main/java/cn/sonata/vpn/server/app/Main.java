@@ -1,20 +1,20 @@
 package cn.sonata.vpn.server.app;
 
-import cn.sonata.vpn.common.packet.Packet;
 import cn.sonata.vpn.common.protocol.ProtocolFSM;
 import cn.sonata.vpn.common.session.DefaultSession;
-import cn.sonata.vpn.common.session.SessionCloseReason;
-import cn.sonata.vpn.common.session.SessionListener;
 import cn.sonata.vpn.common.transport.TransportException;
+import cn.sonata.vpn.common.transport.tcp.JdkTcpConnection;
 import cn.sonata.vpn.common.transport.tcp.JdkTcpServer;
 import cn.sonata.vpn.common.transport.tcp.TcpConnection;
 import cn.sonata.vpn.common.transport.tcp.TcpServer;
 import cn.sonata.vpn.server.core.ServerSession;
 import cn.sonata.vpn.server.io.ServerSessionListenerImpl;
+import cn.sonata.vpn.server.proxy.ProxyService;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 
@@ -57,6 +57,10 @@ public class Main {
 
     private static DefaultSession createSession() {
         try {
+
+            /**
+             * 绑定client
+             */
             InetSocketAddress address = new InetSocketAddress("127.0.0.1", 9000);
             TcpServer tcpServer = new JdkTcpServer();
             tcpServer.bind(address);
@@ -65,14 +69,23 @@ public class Main {
             TcpConnection conn = tcpServer.accept();
             System.out.println("[server] client connected: " + conn);
 
+            /**
+             * 绑定upstream
+             */
+            InetSocketAddress upstreamAddress = new InetSocketAddress("127.0.0.1", 9001);
+            Socket upstreamSocket = new Socket();
+            upstreamSocket.connect(upstreamAddress);
+            TcpConnection upstreamConn = new JdkTcpConnection(upstreamSocket);
             return DefaultSession.create(
                     conn,
                     ProtocolFSM.create(),
-                    ServerSessionListenerImpl.getInstance()     //Listener实现回调机制
+                    ServerSessionListenerImpl.create(new ProxyService(upstreamConn, conn))     //Listener实现回调机制
             );
         } catch (TransportException e) {
             e.printStackTrace();
             return null;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

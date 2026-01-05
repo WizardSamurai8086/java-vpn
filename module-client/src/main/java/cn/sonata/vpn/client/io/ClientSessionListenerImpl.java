@@ -49,7 +49,7 @@ public class ClientSessionListenerImpl implements SessionListener {
 
 
         for (Packet packet : packets) {
-            System.out.println("[server][listener] received packet: " + packet);
+            System.out.println("[client][listener] received packet: " + packet);
             appIO.onPacket(packet);
         }
     }

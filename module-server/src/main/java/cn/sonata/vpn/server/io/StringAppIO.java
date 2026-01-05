@@ -17,7 +17,7 @@ import java.util.List;
 public class StringAppIO implements AppIO {
 
     private final List<String> receivedMessages = new ArrayList<>();
-
+    private volatile Packet receivedPacket;
     public StringAppIO() {
 
     }
@@ -37,9 +37,24 @@ public class StringAppIO implements AppIO {
 
         //存到内存
         receivedMessages.add(message);
+
+        // 让 proxy 层能拿到“最近一次入站包”用于转发
+        receivedPacket = packet;
     }
 
-    public List<String> snapshot() {
+
+    @Override
+    public List<String> stringSnapshot() {
         return List.copyOf(receivedMessages);
+    }
+
+    @Override
+    public Packet packetSnapshot() {
+        Packet snapshot = receivedPacket;
+        if (snapshot == null || snapshot.getBody() == null) {
+            System.err.println("[AppIO] receivedPacket body is null");
+            return null;
+        }
+        return snapshot;
     }
 }

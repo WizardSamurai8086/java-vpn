@@ -40,6 +40,11 @@ public class    Packet {
         this.body = body.asReadOnlyBuffer();
     }
 
+    public Packet() {
+        this.header = null;
+        this.body = null;
+    }    //无参构造
+
     /**
      *  header getter
      * @return  PacketHeader

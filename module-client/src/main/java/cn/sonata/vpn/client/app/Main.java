@@ -73,7 +73,12 @@ public class Main {
 
     private static void packetSendSimulator(TcpConnection connection) {
         try {
-            for (int i = 1; i <= 5; i++) {
+            for (int i = 1; i <= 6; i++) {
+                if (i == 6)
+                {
+                    connection.sendAsync(PacketCodec.encode(Packet.close()));
+                    return;
+                }
                 byte[] bodyBytes = ("Hello-" + i).getBytes(StandardCharsets.UTF_8);
                 ByteBuffer body = ByteBuffer.wrap(bodyBytes);
 
