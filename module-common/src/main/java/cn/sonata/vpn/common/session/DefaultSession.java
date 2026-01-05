@@ -6,6 +6,7 @@ import cn.sonata.vpn.common.transport.TransportException;
 import cn.sonata.vpn.common.transport.tcp.*;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class DefaultSession implements Session {
@@ -15,6 +16,18 @@ public class DefaultSession implements Session {
     private final SessionListener listener;
 
     private SessionState state = SessionState.INIT;
+
+    // Ensure at most one in-flight receive to avoid piling up blocking reads.
+    private final AtomicBoolean receiving = new AtomicBoolean(false);
+
+    // Debug flag: enable with JVM arg -Dsonata.debug.session=true
+    private static final boolean DEBUG = Boolean.getBoolean("sonata.debug.session");
+
+    private static void dbg(String msg) {
+        if (DEBUG) {
+            System.out.println("[session] " + msg);
+        }
+    }
 
     /**
      * 公有静态工厂方法
@@ -64,6 +77,8 @@ public class DefaultSession implements Session {
             return;
         state = SessionState.RUNNING;   //sessionState
 
+        dbg("start(): state=" + state + ", fsm=" + fsm.getState() + ", local=" + connection.getLocalAddress() + ", remote=" + connection.getRemoteAddress());
+
         ProtocolEffect effect = fsm.onSessionStart();
         apply(effect);
     }
@@ -78,6 +93,7 @@ public class DefaultSession implements Session {
             return;
         }
         state = SessionState.RUNNING;   //sessionState.Running 不发包
+        dbg("startPassive(): state=" + state + ", fsm=" + fsm.getState() + ", local=" + connection.getLocalAddress() + ", remote=" + connection.getRemoteAddress());
     }
 
     /**
@@ -88,45 +104,48 @@ public class DefaultSession implements Session {
         if (state != SessionState.RUNNING)
             return;
 
+        // 如果已有一次异步 read 在进行中，则本次调度直接跳过。
+        // 降低竞态和任务堆积
+        // driveOnce() 可能非常频繁调用；JdkTcpConnection.receiveAsync() 内部是阻塞 read，堆积任务会放大竞态。
+        if (!receiving.compareAndSet(false, true)) {
+            return;
+        }
+
         ByteBuffer buffer = ByteBuffer.allocate(4096);
 
-        /**
-         * onReadable is a scheduling trigger, not a synchronous step.
-         *
-         * For teaching demo:
-         * - driveOnce() triggers IO readiness
-         * - actual protocol progression may happen asynchronously
-         *
-         * This is a deliberate simplification under time constraints.
-         */
+        dbg("onReadable(): schedule receiveAsync, fsm=" + fsm.getState() + ", thread=" + Thread.currentThread().getName());
 
         try{
             connection.receiveAsync(buffer).thenAccept(n -> {
-                if(n == null || n < 0)
-                {
-                    close();
-                    return;
-                }
+                try {
+                    dbg("receiveAsync completed: n=" + n + ", thread=" + Thread.currentThread().getName() + ", fsm=" + fsm.getState());
 
-                buffer.flip();
-                //做一个listener来get包
-                var packets = PacketCodec.decode(buffer);
-
-                //fsm层处理
-                for (Packet packet : packets)
-                {
-                    ProtocolEffect effect = fsm.handlePacket(packet);
-                    apply(effect);
-                    if(state != SessionState.RUNNING)
+                    if(n == null || n < 0)
+                    {
+                        dbg("receiveAsync: remote closed -> close()");
+                        close();
                         return;
-
-                    /**应用层和协议层真正的接口
-                     * 在外部impl方法来调取packets
-                     *
-                     */
-                    if (listener != null) {
-                        listener.exposeReceived(List.of(packet));
                     }
+
+                    buffer.flip();
+                    var packets = PacketCodec.decode(buffer);
+                    dbg("decode: packets=" + (packets == null ? "null" : packets.size()));
+
+                    for (Packet packet : packets)
+                    {
+                        dbg("dispatch packet: " + packet);
+                        ProtocolEffect effect = fsm.handlePacket(packet);
+                        apply(effect);
+                        if(state != SessionState.RUNNING)
+                            return;
+
+                        //向应用层导出数据
+                        if (listener != null) {
+                            listener.exposeReceived(List.of(packet));
+                        }
+                    }
+                } finally {
+                    receiving.set(false);
                 }
             });
 
@@ -134,6 +153,8 @@ public class DefaultSession implements Session {
 
         }catch (TransportException e)
         {
+            receiving.set(false);
+            dbg("onReadable(): TransportException -> close(): " + e.getMessage());
             close();
         }
 
@@ -171,11 +192,13 @@ public class DefaultSession implements Session {
             return;
         }
 
+        dbg("apply(): action=" + effect.getAction() + ", outputs=" + (effect.getOutputs() == null ? 0 : effect.getOutputs().size()) + ", fsm=" + fsm.getState());
+
         try{
             //控制tcp连接
             switch (effect.getAction())
             {
-                //TODO:可以加个default暴露问题语义，暂时不做处理
+                //TODO:可以加入default暴露问题语义，暂时不做处理
                 case NONE -> {}
                 case SEND -> {
                     for(Packet packet : effect.getOutputs())

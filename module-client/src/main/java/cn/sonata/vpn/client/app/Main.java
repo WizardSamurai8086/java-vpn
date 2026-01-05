@@ -7,6 +7,7 @@ import cn.sonata.vpn.common.packet.PacketCodec;
 import cn.sonata.vpn.common.packet.PacketHeader;
 import cn.sonata.vpn.common.packet.PacketType;
 import cn.sonata.vpn.common.protocol.ProtocolFSM;
+import cn.sonata.vpn.common.protocol.ProtocolState;
 import cn.sonata.vpn.common.session.DefaultSession;
 import cn.sonata.vpn.common.transport.tcp.JdkTcpConnection;
 import cn.sonata.vpn.common.transport.tcp.TcpConnection;
@@ -24,18 +25,25 @@ public class Main {
         ClientSession clientSession = ClientSession.create(createSession());
         clientSession.start();
 
+        boolean dataSent = false;
+
         while (true) {
             ClientSession.StepResult step = clientSession.driveOnce();
+
+            // 只有在握手完成（FSM 进入 READY）后才允许发送 DATA，否则 server 端会在 INIT/NEGOTIATING 收到 DATA
+            // 并按当前 FSM 规则直接 closeError。
+            if (!dataSent && clientSession.getSession().getFsm().getState() == ProtocolState.READY) {
+                packetSendSimulator(clientSession.getSession().getConnection());    //模拟发包
+                dataSent = true;
+                clientSession.markReady();
+            }
+
             switch (step) {
                 case NOOP:
-
                     clientSession.awaitReady(Duration.ofNanos(100));
                     break;
                 case PROGRESSED:
-                    // 注意：这里未必真的 ready，只是推进了一步。
-                    // 先保留你的逻辑，但至少保证发包长度正确、异常可见。
-                    packetSendSimulator(clientSession.getSession().getConnection());
-                    clientSession.markReady();
+                    // PROGRESSED 仅表示触发了一次 onReadable() 调度，不代表握手已完成
                     break;
                 case CLOSED:
                     System.out.println("ClientSession has been closed");
@@ -59,7 +67,6 @@ public class Main {
             TcpConnection conn = new JdkTcpConnection(socket);
             return DefaultSession.create(conn, ProtocolFSM.create(), ClientSessionListenerImpl.getInstance());
         } catch (IOException e) {
-            // 不要吞掉并返回 null，否则后面很难定位
             throw new RuntimeException("[Client] Failed to create session", e);
         }
     }
@@ -83,7 +90,6 @@ public class Main {
                 Thread.sleep(2000);
             }
         } catch (Exception e) {
-            // 打印堆栈，便于看到真正的报错点
             e.printStackTrace();
         }
     }
